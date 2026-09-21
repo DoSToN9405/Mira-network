@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Earn Wallet</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1220;
+      --panel: #111a2c;
+      --panel-2: #172238;
+      --text: #eef4ff;
+      --muted: #93a4c3;
+      --accent: #4da3ff;
+      --ok: #39d98a;
+      --bad: #ff6b6b;
+      --border: rgba(255,255,255,.09);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #070d18, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      padding: 16px 14px 96px;
+    }
+
+    .hidden { display: none !important; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+    }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .tabs {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(7,13,24,.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      z-index: 30;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 8px;
+      font-weight: 700;
+    }
+
+    .tab-btn.active {
+      background: rgba(77,163,255,.16);
+      border-color: rgba(77,163,255,.45);
+      color: var(--accent);
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .task {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel);
+      margin-bottom: 10px;
+    }
+
+    .task img {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: #000;
+    }
+
+    .task .icon-fallback {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      font-weight: 900;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-weight: 800;
+      color: white;
+      background: var(--accent);
+      min-width: 112px;
+    }
+
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .btn.secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn.ok { background: rgba(57,217,138,.18); color: var(--ok); border: 1px solid rgba(57,217,138,.35); }
+
+    input, select {
+      width: 100%;
+      background: #0a111d;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 16px;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid var(--border);
+    }
+
+    .status.pending { color: #ffd166; border-color: rgba(255,209,102,.35); }
+    .status.completed { color: var(--ok); border-color: rgba(57,217,138,.35); }
+    .status.rejected, .status.processing { color: var(--bad); border-color: rgba(255,107,107,.35); }
+
+    .center {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="panel">
+      <div class="muted small">Total Balance</div>
+      <div style="font-size:34px;font-weight:900;margin:6px 0 12px;">
+        <span id="balance">0.00</span><span id="currencyTop" class="muted"> TK</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="muted small">Earned</div>
+          <div class="value" id="earned">0.00</div>
+        </div>
+        <div class="stat">
+          <div class="muted small">Referrals</div>
+          <div class="value" id="refs">0</div>
+        </div>
+        <div class="stat">
+          <div class="muted small">Min WD</div>
+          <div class="value" id="minWd">0.00</div>
+        </div>
+      </div>
+    </div>
+
+    <section id="tab-earn" class="section active">
+      <div class="panel">
+        <h3 style="margin:0 0 12px;">Daily Ads Tasks</h3>
+        <div id="tasks"></div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 12px;">Invite</h3>
+        <div class="muted small" id="inviteHint">Приглашай друзей и получай бонус за каждого.</div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button class="btn" id="inviteBtn">Share Invite</button>
+          <button class="btn secondary" id="copyInviteBtn">Copy Link</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-leaderboard" class="section">
+      <div class="panel">
+        <h3 style="margin:0 0 12px;">Leaderboard</h3>
+        <div class="muted small" style="margin-bottom:12px;">Top 20 Referrers</div>
+        <div id="leaderboard"></div>
+      </div>
+    </section>
+
+    <section id="tab-withdraw" class="section">
+      <div class="panel">
+        <h3 style="margin:0 0 12px;">Withdraw</h3>
+        <form id="withdrawForm">
+          <label class="muted small" for="withdrawMethod">Payment Method</label>
+          <select id="withdrawMethod"></select>
+
+          <label class="muted small" for="amount">Amount</label>
+          <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" required />
+
+          <label class="muted small" for="account">Account / Wallet / Number</label>
+          <input id="account" type="text" autocomplete="off" placeholder="Destination account" required />
+
+          <button class="btn" id="withdrawBtn" type="submit">Request Withdraw</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 12px;">Last Transactions</h3>
+        <div id="history"></div>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-earn" type="button">Earn</button>
+      <button class="tab-btn" data-tab="tab-leaderboard" type="button">Leaderboard</button>
+      <button class="tab-btn" data-tab="tab-withdraw" type="button">Withdraw</button>
+    </nav>
+  </div>
+
+  <script>
+    const WORKER_URL = "https://miraearn.networkk.workers.dev";
+
+    const tg = window.Telegram?.WebApp;
+    const state = {
+      user: null,
+      config: null,
+      tasks: [],
+      leaderboard: [],
+      history: [],
+      localStarts: {}
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function clearNode(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function money(value) {
+      return (Number(value) || 0).toFixed(2);
+    }
+
+    function todayUtc() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function isSafeHttpsUrl(value) {
+      try {
+        const u = new URL(String(value));
+        return u.protocol === "https:";
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function showAlert(message) {
+      if (tg?.showAlert) {
+        tg.showAlert(message);
+      } else {
+        alert(message);
+      }
+    }
+
+    async function api(action, options = {}) {
+      if (!tg?.initData) {
+        throw new Error("Откройте приложение внутри Telegram");
+      }
+
+      const headers = {
+        "X-Telegram-Init-Data": tg.initData
+      };
+
+      if (options.body) headers["Content-Type"] = "application/json";
+
+      const response = await fetch(`${WORKER_URL}/?action=${encodeURIComponent(action)}`, {
+        method: options.method || "GET",
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      return data;
+    }
+
+    function getStart(task) {
+      return Number(state.localStarts[task.id] || state.user?.taskStarts?.[task.id] || 0);
+    }
+
+    function getMinSeconds(task) {
+      const taskMin = Number(task.minSeconds);
+      const cfgMin = Number(state.config?.taskMinSeconds || 0);
+      return Math.max(0, Number(taskMin >= 0 ? taskMin : cfgMin));
+    }
+
+    function isTaskCompleted(task) {
+      if (!state.user) return false;
+
+      if (task.type === "daily") {
+        return state.user.dailyTasks?.[task.id] === todayUtc();
+      }
+
+      return Boolean(state.user.completedTasks?.[task.id]);
+    }
+
+    async function login() {
+      const data = await api("login", {
+        method: "POST",
+        body: {
+          photoUrl: tg?.initDataUnsafe?.user?.photo_url || ""
+        }
+      });
+
+      state.user = data.user;
+      state.localStarts = { ...(data.user?.taskStarts || {}) };
+    }
+
+    async function loadConfig() {
+      const data = await api("getConfig");
+      state.config = data.config;
+    }
+
+    async function loadTasks() {
+      const data = await api("getTasks");
+      state.tasks = data.tasks || [];
+    }
+
+    async function loadLeaderboard() {
+      const data = await api("getLeaderboard");
+      state.leaderboard = data.leaderboard || [];
+    }
+
+    async function loadHistory() {
+      const data = await api("getHistory");
+      state.history = data.history || [];
+    }
+
+    function renderStats() {
+      $("balance").textContent = money(state.user?.balance);
+      $("earned").textContent = money(state.user?.totalEarned);
+      $("refs").textContent = String(state.user?.referrals || 0);
+      $("currencyTop").textContent = ` ${state.config?.currencySymbol || "TK"}`;
+      $("minWd").textContent = money(state.config?.minWithdraw || 0);
+    }
+
+    function renderTasks() {
+      const wrap = $("tasks");
+      clearNode(wrap);
+
+      if (!state.tasks.length) {
+        wrap.appendChild(el("div", "muted", "Нет активных заданий"));
+        return;
+      }
+
+      for (const task of state.tasks) {
+        const card = el("div", "task");
+
+        if (task.iconUrl && isSafeHttpsUrl(task.iconUrl)) {
+          const img = document.createElement("img");
+          img.src = task.iconUrl;
+          img.alt = "";
+          img.loading = "lazy";
+          img.onerror = () => img.replaceWith(el("div", "icon-fallback", task.name.slice(0, 1).toUpperCase()));
+          card.appendChild(img);
+        } else {
+          card.appendChild(el("div", "icon-fallback", task.name.slice(0, 1).toUpperCase()));
+        }
+
+        const info = el("div");
+        info.appendChild(el("div", "", task.name));
+        info.appendChild(el("div", "muted small", `+${money(task.reward)} ${state.config?.currencySymbol || "TK"} · ${task.type === "daily" ? "Daily" : "One time"}`));
+        card.appendChild(info);
+
+        const btn = el("button", "btn", "Начать");
+        btn.id = `task-btn-${task.id}`;
+        btn.type = "button";
+
+        btn.addEventListener("click", async () => {
+          const startedAt = getStart(task);
+
+          if (!startedAt) {
+            try {
+              btn.disabled = true;
+              const data = await api("startTask", {
+                method: "POST",
+                body: { taskId: task.id }
+              });
+
+              state.localStarts[task.id] = data.startedAt || Date.now();
+
+              if (task.link && isSafeHttpsUrl(task.link)) {
+                window.open(task.link, "_blank", "noopener,noreferrer");
+              }
+
+              tickTasks();
+            } catch (e) {
+              btn.disabled = false;
+              showAlert(e.message);
+            }
+            return;
+          }
+
+          const waitMs = getMinSeconds(task) * 1000 - (Date.now() - startedAt);
+          if (waitMs > 0) return;
+
+          try {
+            btn.disabled = true;
+            const data = await api("claimTask", {
+              method: "POST",
+              body: { taskId: task.id }
+            });
+
+            state.user = data.user;
+            delete state.localStarts[task.id];
+
+            renderStats();
+            renderTasks();
+            showAlert(`Начислено ${money(data.reward)} ${state.config?.currencySymbol || "TK"}`);
+          } catch (e) {
+            btn.disabled = false;
+            showAlert(e.message);
+          }
+        });
+
+        card.appendChild(btn);
+        wrap.appendChild(card);
+      }
+
+      tickTasks();
+    }
+
+    function tickTasks() {
+      for (const task of state.tasks) {
+        const btn = document.getElementById(`task-btn-${task.id}`);
+        if (!btn) continue;
+
+        if (isTaskCompleted(task)) {
+          btn.disabled = true;
+          btn.textContent = "Выполнено";
+          btn.classList.add("ok");
+          continue;
+        }
+
+        btn.classList.remove("ok");
+        const startedAt = getStart(task);
+
+        if (!startedAt) {
+          btn.disabled = false;
+          btn.textContent = "Начать";
+          continue;
+        }
+
+        const waitMs = getMinSeconds(task) * 1000 - (Date.now() - startedAt);
+        if (waitMs > 0) {
+          btn.disabled = true;
+          btn.textContent = `Ожидание ${Math.ceil(waitMs / 1000)} c`;
+        } else {
+          btn.disabled = false;
+          btn.textContent = "Получить";
+        }
+      }
+    }
+
+    function renderLeaderboard() {
+      const wrap = $("leaderboard");
+      clearNode(wrap);
+
+      if (!state.leaderboard.length) {
+        wrap.appendChild(el("div", "muted", "Пока пусто"));
+        return;
+      }
+
+      state.leaderboard.forEach((item, index) => {
+        const row = el("div", "list-item");
+
+        const left = el("div");
+        left.appendChild(el("div", "", `#${index + 1} ${item.firstName || "User"}`));
+        left.appendChild(el("div", "muted small", item.id));
+
+        const right = el("div", "", `${item.referrals || 0} refs`);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        wrap.appendChild(row);
+      });
+    }
+
+    function renderWithdrawForm() {
+      const select = $("withdrawMethod");
+      clearNode(select);
+
+      const methods = state.config?.paymentMethods || [];
+
+      if (!methods.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Методы выплаты не настроены";
+        select.appendChild(option);
+        select.disabled = true;
+        $("withdrawBtn").disabled = true;
+        return;
+      }
+
+      select.disabled = false;
+      $("withdrawBtn").disabled = false;
+
+      for (const method of methods) {
+        const option = document.createElement("option");
+        option.value = method.id;
+        option.textContent = method.name;
+        select.appendChild(option);
+      }
+    }
+
+    function renderHistory() {
+      const wrap = $("history");
+      clearNode(wrap);
+
+      if (!state.history.length) {
+        wrap.appendChild(el("div", "muted", "История пуста"));
+        return;
+      }
+
+      for (const item of state.history) {
+        const row = el("div", "list-item");
+
+        const left = el("div");
+        left.appendChild(el("div", "", `${money(item.amount)} ${state.config?.currencySymbol || "TK"}`));
+        left.appendChild(el("div", "muted small", `${item.method || "Method"} · ${new Date(item.createdAt).toLocaleString()}`));
+
+        const right = el("div", `status ${item.status}`, item.status);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        wrap.appendChild(row);
+      }
+    }
+
+    function getInviteLink() {
+      const bot = String(state.config?.botUsername || "").replace(/^@/, "");
+      if (!bot) return "";
+      return `https://t.me/${bot}?startapp=ref_${encodeURIComponent(state.user?.id || "")}`;
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".section").forEach((section) => {
+        section.classList.toggle("active", section.id === tabId);
+      });
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === tabId);
+      });
+    }
+
+    async function init() {
+      if (!tg?.initData) {
+        document.body.innerHTML = '<div class="center">Откройте это приложение внутри Telegram.</div>';
+        return;
+      }
+
+      tg.ready();
+      tg.expand();
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      });
+
+      $("withdrawForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        try {
+          const amount = parseFloat($("amount").value);
+          const methodId = $("withdrawMethod").value;
+          const account = $("account").value.trim();
+
+          if (!methodId) throw new Error("Выберите метод выплаты");
+          if (!Number.isFinite(amount) || amount <= 0) throw new Error("Некорректная сумма");
+          if (account.length < 3) throw new Error("Укажите счёт или кошелёк");
+
+          $("withdrawBtn").disabled = true;
+
+          const data = await api("withdraw", {
+            method: "POST",
+            body: { amount, methodId, account }
+          });
+
+          state.user = data.user;
+          $("amount").value = "";
+          $("account").value = "";
+
+          renderStats();
+          await loadHistory();
+          renderHistory();
+
+          showAlert("Заявка на вывод создана");
+        } catch (e) {
+          showAlert(e.message);
+        } finally {
+          $("withdrawBtn").disabled = false;
+        }
+      });
+
+      $("inviteBtn").addEventListener("click", () => {
+        const link = getInviteLink();
+        if (!link) {
+          showAlert("Bot username не настроен в админке");
+          return;
+        }
+
+        if (tg?.openTelegramLink) {
+          tg.openTelegramLink(link);
+        } else {
+          window.open(link, "_blank", "noopener,noreferrer");
+        }
+      });
+
+      $("copyInviteBtn").addEventListener("click", async () => {
+        const link = getInviteLink();
+        if (!link) {
+          showAlert("Bot username не настроен в админке");
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(link);
+          showAlert("Ссылка скопирована");
+        } catch (e) {
+          showAlert(link);
+        }
+      });
+
+      try {
+        await login();
+        await Promise.all([
+          loadConfig(),
+          loadTasks(),
+          loadLeaderboard(),
+          loadHistory()
+        ]);
+
+        renderStats();
+        renderTasks();
+        renderLeaderboard();
+        renderWithdrawForm();
+        renderHistory();
+
+        setInterval(tickTasks, 1000);
+      } catch (e) {
+        showAlert(e.message);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
